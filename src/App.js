@@ -1,6 +1,13 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Autocomplete from "./components/Autocomplete";
+
 import { getExchangeInformation } from './apis/market-data';
+import {
+  subscribeAggregateTradeStreams,
+  unsubscribeAggregateTradeStreams,
+  subscribePartialBookDepthStreams,
+  unsubscribePartialBookDepthStreams,
+} from './sockets/market';
 
 function App() {
   const [symbols, setSymbols] = useState([]);
@@ -14,10 +21,76 @@ function App() {
     fetchExchangeInformation()
   }, [])
 
+  const [marketDepth, setMarketDepth] = useState(null);
+  const partialBookDepthStreamsCallback = useCallback((data) => {
+    const clonedBids = data?.bids ? [...data.bids] : [];
+    clonedBids.sort(([_, aPrice], [__, bPrice]) => Number(bPrice) - Number(aPrice))
+
+    const clonedAsks = data?.asks ? [...data.asks] : []
+    clonedAsks.sort(([_, aPrice], [__, bPrice]) => Number(bPrice) - Number(aPrice))
+
+    setMarketDepth({
+      bids: clonedBids,
+      asks: clonedAsks
+    })
+  }, [])
+
+  const tradesRef = useRef([]);
+  const [trades, setTrades] = useState([]);
+  const aggregateTradeStreamsCallback = useCallback((data) => {
+    const clonedTrades = [...tradesRef.current];
+    clonedTrades.push({
+      quantity: data.q,
+      price: data.p,
+      time: data.T
+    });
+    clonedTrades.sort((a, b) => b.time - a.time)
+
+    const DEFAULT_MAX_LENGTH = 50;
+    if (clonedTrades.length > DEFAULT_MAX_LENGTH) {
+      clonedTrades.length = DEFAULT_MAX_LENGTH;
+    }
+
+    setTrades(clonedTrades)
+    tradesRef.current = clonedTrades;
+  }, []);
+
   const [symbol, setSymbol] = useState('');
   const handleSymbolChange = useCallback((value) => {
     setSymbol(value)
+    setTrades([])
+    setMarketDepth(null)
   }, []);
+
+  const lowerCaseSymbol = symbol.toLowerCase();
+
+  useEffect(() => {
+    subscribeAggregateTradeStreams({
+      symbol: lowerCaseSymbol,
+      callback: aggregateTradeStreamsCallback,
+    });
+
+    return () => {
+      unsubscribeAggregateTradeStreams({
+        symbol: lowerCaseSymbol,
+        callback: aggregateTradeStreamsCallback,
+      });
+    }
+  }, [lowerCaseSymbol, aggregateTradeStreamsCallback])
+
+  useEffect(() => {
+    subscribePartialBookDepthStreams({
+      symbol: lowerCaseSymbol,
+      callback: partialBookDepthStreamsCallback,
+    });
+
+    return () => {
+      unsubscribePartialBookDepthStreams({
+        symbol: lowerCaseSymbol,
+        callback: partialBookDepthStreamsCallback,
+      });
+    }
+  }, [lowerCaseSymbol, partialBookDepthStreamsCallback])
 
   return (
     <>
