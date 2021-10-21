@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import Autocomplete from "./components/common/Autocomplete";
+import MarketDepth from "./components/MarketDepth";
 import TradeList from "./components/TradeList";
 
 import { getExchangeInformation } from './apis/market-data';
@@ -26,10 +27,10 @@ function App() {
   const [marketDepth, setMarketDepth] = useState(null);
   const partialBookDepthStreamsCallback = useCallback((data) => {
     const clonedBids = data?.bids ? [...data.bids] : [];
-    clonedBids.sort(([_, aPrice], [__, bPrice]) => Number(bPrice) - Number(aPrice))
+    clonedBids.sort(([aPrice, _], [bPrice, __]) => Number(bPrice) - Number(aPrice))
 
     const clonedAsks = data?.asks ? [...data.asks] : []
-    clonedAsks.sort(([_, aPrice], [__, bPrice]) => Number(bPrice) - Number(aPrice))
+    clonedAsks.sort(([aPrice, _], [bPrice, __]) => Number(bPrice) - Number(aPrice))
 
     setMarketDepth({
       bids: clonedBids,
@@ -101,6 +102,11 @@ function App() {
         onChange={handleSymbolChange}
         options={symbolAutocompleteOptions}
       />
+      <h1>Market Depth 上Ask 下 Bid</h1>
+      <MarketDepth
+        data={marketDepth}
+      />
+      <h1>Trade List</h1>
       <TradeList
         data={trades}
       />
