@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import Autocomplete from "./components/Autocomplete";
+
+import Autocomplete from "./components/common/Autocomplete";
+import TradeList from "./components/TradeList";
 
 import { getExchangeInformation } from './apis/market-data';
 import {
@@ -98,6 +100,9 @@ function App() {
         value={symbol}
         onChange={handleSymbolChange}
         options={symbolAutocompleteOptions}
+      />
+      <TradeList
+        data={trades}
       />
     </>
   )
